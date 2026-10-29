@@ -8,7 +8,9 @@ A Streamlit prototype for a future AI-assisted ministry monitoring application.
 - Basic role labels: administrator, officer, supervisor
 - SQLite persistence for users, inspections, and audit events
 - Dashboard, manual inspection records, and CSV reporting
-- Navigation placeholders for five future computer-vision modules
+- Dashboard, manual inspection records, and CSV reporting
+- Fish Counting image/video upload workflow using a configured custom YOLO model
+- Navigation placeholders for the other four computer-vision modules
 
 ## Planned AI modules
 
@@ -18,7 +20,21 @@ A Streamlit prototype for a future AI-assisted ministry monitoring application.
 4. Fish species identification
 5. Livestock movement monitoring
 
-These modules are not yet connected to YOLO models in Phase 1. No disease diagnosis or automatic species claim should be relied on until a suitable model is trained and validated.
+Fish Counting now includes an image/video upload and inference workflow, but it requires a suitable trained fish-detection model file. The other four computer-vision modules remain placeholders. No disease diagnosis or automatic species claim should be relied on until a suitable model is trained and validated.
+
+## Enable Fish Counting
+
+The core application dependencies do not install the larger computer-vision stack. Use a Python version supported by PyTorch/Ultralytics; Python 3.12 is recommended. In a Python 3.12 environment, install the optional dependencies:
+
+    python -m pip install -r requirements-ai.txt
+
+Place your trained fish-detection YOLO weights at:
+
+    models/fish_counting.pt
+
+Alternatively, set the `FISH_YOLO_MODEL` environment variable to the full path of your weights file before starting Streamlit. Model weights are intentionally excluded from Git commits. Use a model whose labels and performance have been validated for the intended fish species, tank/channel conditions, camera angles, and image quality.
+
+The image workflow reports detections in one image. The video workflow samples frames and reports the peak detections in one sampled frame; it does **not** claim to count unique fish across the whole video. Review detections and save only a verified count. If the model file or optional dependencies are missing, the page explains what is needed.
 
 ## Run in GitHub Codespaces
 
