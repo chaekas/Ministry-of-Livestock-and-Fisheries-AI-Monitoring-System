@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 
 REPO_ID = "akridge/yolo11-fish-detector-grayscale"
 REVISION = "ee89537a26ba73122c1ca99c58ff23a91b361fda"
-FILENAME = "yolo11n-fish-detector-grayscale.onnx"
+FILENAME = "train/weights/yolo11n-fish-detector-grayscale.onnx"
 DESTINATION = Path("models") / "fish_counting.onnx"
 
 
