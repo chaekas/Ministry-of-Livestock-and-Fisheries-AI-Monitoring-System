@@ -1,0 +1,5 @@
+# Optional dependencies for computer-vision modules.
+# Python 3.12 is recommended; install separately from the core app requirements.
+ultralytics>=8.3,<9.0
+opencv-python-headless>=4.10,<5.0
+Pillow>=10.0,<13.0
