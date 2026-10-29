@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-DEFAULT_MODEL_PATH = "models/fish_counting.pt"
+DEFAULT_MODEL_PATH = "models/fish_counting.onnx"
 
 
 def get_model_path() -> Path:
@@ -19,8 +19,9 @@ def load_model() -> Any:
     if not model_path.is_file():
         raise FileNotFoundError(
             f"Fish detection weights were not found at '{model_path}'. "
-            "Place a suitable trained fish-detection .pt file there or set "
-            "FISH_YOLO_MODEL to its path."
+            "Run 'python scripts/download_fish_model.py' to download the optional "
+            "grayscale underwater ONNX model, or set FISH_YOLO_MODEL to a suitable "
+            "model file path."
         )
     try:
         from ultralytics import YOLO
