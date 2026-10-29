@@ -110,11 +110,11 @@ def show_fish_counting(user):
 
     if not model_path.is_file():
         st.warning(
-            "A trained fish-detection model is not installed yet. The upload and "
-            "inference workflow is ready, but actual detection requires compatible "
-            "YOLO weights. See README.md for setup instructions."
+            "The fish model is not installed yet. Install the optional AI dependencies, "
+            "then run 'python scripts/download_fish_model.py' as described in README.md. "
+            "The supplied starter model is intended for grayscale underwater footage."
         )
-        st.code("models/fish_counting.pt", language="text")
+        st.code(str(model_path), language="text")
         st.info(
             "Use a model trained for fish detection. Generic YOLO weights may not "
             "contain a fish class and should not be treated as a fish-counting model."
