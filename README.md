@@ -28,11 +28,19 @@ The core application dependencies do not install the larger computer-vision stac
 
     python -m pip install -r requirements-ai.txt
 
-Place your trained fish-detection YOLO weights at:
+Option A is a community YOLO11 ONNX model intended for grayscale underwater footage. It is a starting point for experimentation, not a ministry-validated model. The model is published under the AGPL-3.0 license; review that license and your organization's policy before use or redistribution.
 
-    models/fish_counting.pt
+Install the optional dependencies in a compatible Python environment:
 
-Alternatively, set the `FISH_YOLO_MODEL` environment variable to the full path of your weights file before starting Streamlit. Model weights are intentionally excluded from Git commits. Use a model whose labels and performance have been validated for the intended fish species, tank/channel conditions, camera angles, and image quality.
+    python -m pip install -r requirements-ai.txt
+
+Then download the model from its pinned Hugging Face revision:
+
+    python scripts/download_fish_model.py
+
+The downloaded model is saved as `models/fish_counting.onnx`. Alternatively, set the `FISH_YOLO_MODEL` environment variable to the full path of a compatible model before starting Streamlit. Model files are intentionally excluded from Git commits.
+
+Model source and limitations: https://huggingface.co/akridge/yolo11-fish-detector-grayscale . It was trained for grayscale underwater imagery and may perform poorly on color footage, tanks, ponds, or unfamiliar species. Validate it on representative local footage before using counts operationally. Do not upload sensitive ministry footage to external services without authorization.
 
 The image workflow reports detections in one image. The video workflow samples frames and reports the peak detections in one sampled frame; it does **not** claim to count unique fish across the whole video. Review detections and save only a verified count. If the model file or optional dependencies are missing, the page explains what is needed.
 
