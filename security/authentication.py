@@ -16,14 +16,25 @@ def hash_password(password):
     digest = hashlib.pbkdf2_hmac(
         "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
     )
-    return f"\u0024{salt.hex()}\u0024{digest.hex()}"
+    return f"${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password, stored_hash):
+    """Verify a password against the stored $salt_hex$digest_hex format."""
+    if not isinstance(password, str) or not isinstance(stored_hash, str):
+        return False
+
     try:
-        salt_hex, digest_hex = stored_hash.split("$", 1)
-        salt = bytes.fromhex(salt_hex)
-        expected = bytes.fromhex(digest_hex)
+        parts = stored_hash.split("$")
+        # The format begins with '$' and contains exactly salt and digest.
+        if len(parts) != 3 or parts[0] != "":
+            return False
+
+        salt = bytes.fromhex(parts[1])
+        expected = bytes.fromhex(parts[2])
+        if len(salt) != 16 or len(expected) != hashlib.sha256().digest_size:
+            return False
+
         actual = hashlib.pbkdf2_hmac(
             "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
         )
