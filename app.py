@@ -48,8 +48,35 @@ MODULES = {
 
 
 def show_header():
+    st.markdown(
+        """
+        <style>
+        .block-container { padding-top: 1.7rem; padding-bottom: 2.5rem; max-width: 1400px; }
+        h1, h2, h3 { letter-spacing: -0.025em; }
+        [data-testid="stSidebar"] { border-right: 1px solid rgba(100,116,139,.22); }
+        [data-testid="stSidebar"] h1 { font-size: 1.25rem; }
+        div[data-testid="stMetric"] {
+            background: rgba(15, 118, 110, 0.055);
+            border: 1px solid rgba(15, 118, 110, 0.15);
+            padding: 1rem; border-radius: 12px;
+        }
+        div[data-testid="stForm"] {
+            border: 1px solid rgba(100,116,139,.22);
+            border-radius: 14px; padding: 1.25rem;
+            background: var(--secondary-background-color);
+        }
+        .ministry-eyebrow {
+            color: #0f766e; text-transform: uppercase; letter-spacing: .12em;
+            font-size: .72rem; font-weight: 750; margin-bottom: .35rem;
+        }
+        .ministry-subtitle { color: #64748b; font-size: .98rem; margin-top: -.35rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="ministry-eyebrow">Government monitoring platform</div>', unsafe_allow_html=True)
     st.title("Ministry of Livestock and Fisheries")
-    st.caption("AI Monitoring and Decision-Support System")
+    st.markdown('<div class="ministry-subtitle">AI Monitoring &amp; Decision-Support System</div>', unsafe_allow_html=True)
     st.divider()
 
 
@@ -88,19 +115,24 @@ def show_initial_setup():
 
 def show_login():
     show_header()
-    st.subheader("Authorized User Login")
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in")
-    if submitted:
-        user = authenticate_user(username, password)
-        if user is None:
-            st.error("Invalid username or password.")
-            return
-        st.session_state["user"] = user
-        record_audit(user["username"], "login", "Successful login")
-        st.rerun()
+    left, center, right = st.columns([1.25, 1, 1.25], gap="large")
+    with center:
+        st.markdown("### Sign in")
+        st.caption("Use your authorized ministry account to continue.")
+        with st.container(border=True):
+            with st.form("login_form"):
+                username = st.text_input("Username", placeholder="Enter your username")
+                password = st.text_input("Password", type="password", placeholder="Enter your password")
+                submitted = st.form_submit_button("Sign in", use_container_width=True)
+            st.caption("Access is restricted to authorized users.")
+        if submitted:
+            user = authenticate_user(username, password)
+            if user is None:
+                st.error("Invalid username or password.")
+                return
+            st.session_state["user"] = user
+            record_audit(user["username"], "login", "Successful login")
+            st.rerun()
 
 
 
