@@ -10,6 +10,21 @@ A low-cost Streamlit prototype for fish and livestock market inspections.
 
 The app includes local login, administrator-created user accounts, a SQLite database, an executive dashboard, and an inspection history.
 
+## Deploy on Streamlit Community Cloud
+
+The app can be deployed from this GitHub repository using Streamlit Community Cloud. The deployment needs to be created from your Streamlit account:
+
+1. Open [Streamlit Community Cloud](https://share.streamlit.io/) and sign in with GitHub.
+2. Choose **Create app**.
+3. Select repository `chaekas/Ministry-of-Livestock-and-Fisheries-AI-Monitoring-System`, branch `main`, and main file path `app.py`.
+4. In **Advanced settings**, choose **Python 3.12**.
+5. Select **Deploy** and wait for the build logs to finish. Streamlit will provide a `*.streamlit.app` address.
+6. On first launch, create the administrator account. Use a unique strong password.
+
+The core interface dependencies are in `requirements.txt`. Optional AI detection dependencies are in `requirements-ai.txt` and are not installed by default. Fish/livestock counting will only run when compatible trained model weights are also supplied.
+
+**Prototype hosting warning:** Streamlit Community Cloud's local filesystem is not durable storage. The SQLite database (`data/ministry.db`) and uploaded inspection media may be lost after a restart, rebuild, or instance replacement. Do not use this free prototype hosting for real ministry records or sensitive market footage. For operational use, configure durable database/object storage, access controls, backups, and ministry-approved hosting first.
+
 ## Run in GitHub Codespaces
 
 Python 3.12 is recommended for the optional computer-vision dependencies.
@@ -43,7 +58,7 @@ Place a model trained for the relevant detection task at the configured path. Th
 
 - The photo tabs use Streamlit's browser camera input when a supported camera is available and permitted by the browser.
 - Existing videos can be uploaded for sampled-frame analysis.
-- **Direct in-app video recording is not implemented yet**; this prototype currently supports direct photo capture and video upload.
+- Livestock Counting includes an experimental in-app browser video recorder (up to 30 seconds, with a 25 MB recording limit). It requires browser camera/microphone permission and an HTTPS deployment.
 
 ## Data and security
 
