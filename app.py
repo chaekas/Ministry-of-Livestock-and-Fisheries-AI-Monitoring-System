@@ -38,6 +38,11 @@ st.set_page_config(
 
 initialize_database()
 
+livestock_video_recorder = st.components.v1.declare_component(
+    "livestock_video_recorder",
+    path=str(Path(__file__).parent / "components" / "livestock_video_recorder"),
+)
+
 MODULES = {
     "Livestock Counting": "Detect and count supported livestock in images or videos.",
     "Fish Counting": "Count visible fish in suitable tanks, channels, or videos.",
@@ -327,38 +332,74 @@ def show_livestock_counting(user):
             result_summary = current["summary"]
 
     with tab_video:
-        video_file = st.file_uploader(
-            "Upload a livestock market video", type=["mp4", "mov", "avi", "mkv"], key="livestock_video"
-        )
+        record_tab, upload_tab = st.tabs(["Record with camera", "Upload existing video"])
         video_confidence = st.slider(
             "Video detection confidence", 0.10, 0.90, 0.35, 0.05, key="livestock_video_confidence"
         )
-        if video_file is not None and st.button("Analyse sampled video frames", key="count_livestock_video"):
-            import tempfile
-
-            suffix = "." + video_file.name.rsplit(".", 1)[-1].lower()
-            try:
-                with tempfile.NamedTemporaryFile(suffix=suffix) as temp_video:
-                    temp_video.write(video_file.getvalue())
-                    temp_video.flush()
-                    with st.spinner("Sampling video frames and detecting livestock..."):
-                        model = load_livestock_model()
-                        frame_counts = count_livestock_video_sampled_frames(
-                            model, temp_video.name, confidence=video_confidence
-                        )
-                peak = max(item["animal_count"] for item in frame_counts)
-                summary = (
-                    f"Sampled {len(frame_counts)} frames. Peak observed detections were {peak} "
-                    "in one sampled frame; this is not a unique-animal total."
+        with record_tab:
+            st.caption("Record a short video directly from your device camera (maximum 30 seconds).")
+            camera_recording = livestock_video_recorder(key="livestock_camera_video", default=None)
+            if camera_recording and camera_recording.get("data"):
+                st.success(
+                    f"Camera video ready: {camera_recording.get('name', 'recording.webm')} "
+                    f"({camera_recording.get('size', 0) / 1024 / 1024:.1f} MB)"
                 )
-                st.session_state["livestock_count_result"] = {
-                    "kind": "video",
-                    "count": peak,
-                    "summary": summary,
-                    "frames": frame_counts,
-                }
-            except Exception as exc:
-                st.error(f"Livestock video analysis could not be completed: {exc}")
+                if st.button("Analyse recorded video", key="analyse_livestock_camera_video"):
+                    import base64
+                    import tempfile
+
+                    try:
+                        video_bytes = base64.b64decode(camera_recording["data"])
+                        with tempfile.NamedTemporaryFile(suffix=".webm") as temp_video:
+                            temp_video.write(video_bytes)
+                            temp_video.flush()
+                            with st.spinner("Sampling recorded video frames and detecting livestock..."):
+                                model = load_livestock_model()
+                                frame_counts = count_livestock_video_sampled_frames(
+                                    model, temp_video.name, confidence=video_confidence
+                                )
+                        if not frame_counts:
+                            raise ValueError("No readable frames were found in the recording.")
+                        peak = max(item["animal_count"] for item in frame_counts)
+                        summary = (
+                            f"Sampled {len(frame_counts)} frames from a camera recording. Peak observed "
+                            f"detections were {peak} in one sampled frame; this is not a unique-animal total."
+                        )
+                        st.session_state["livestock_count_result"] = {
+                            "kind": "video", "count": peak, "summary": summary, "frames": frame_counts,
+                        }
+                    except Exception as exc:
+                        st.error(f"Camera video analysis could not be completed: {exc}")
+
+        with upload_tab:
+            video_file = st.file_uploader(
+                "Upload a livestock market video", type=["mp4", "mov", "avi", "mkv", "webm"], key="livestock_video"
+            )
+            if video_file is not None and st.button("Analyse uploaded video", key="count_livestock_video"):
+                import tempfile
+
+                suffix = "." + video_file.name.rsplit(".", 1)[-1].lower()
+                try:
+                    with tempfile.NamedTemporaryFile(suffix=suffix) as temp_video:
+                        temp_video.write(video_file.getvalue())
+                        temp_video.flush()
+                        with st.spinner("Sampling video frames and detecting livestock..."):
+                            model = load_livestock_model()
+                            frame_counts = count_livestock_video_sampled_frames(
+                                model, temp_video.name, confidence=video_confidence
+                            )
+                    if not frame_counts:
+                        raise ValueError("No readable frames were found in the uploaded video.")
+                    peak = max(item["animal_count"] for item in frame_counts)
+                    summary = (
+                        f"Sampled {len(frame_counts)} frames. Peak observed detections were {peak} "
+                        "in one sampled frame; this is not a unique-animal total."
+                    )
+                    st.session_state["livestock_count_result"] = {
+                        "kind": "video", "count": peak, "summary": summary, "frames": frame_counts,
+                    }
+                except Exception as exc:
+                    st.error(f"Livestock video analysis could not be completed: {exc}")
 
         current = st.session_state.get("livestock_count_result")
         if current and current.get("kind") == "video":
