@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body{font-family:system-ui,sans-serif;margin:0;color:var(--text-color,#172033)}
+.card{border:1px solid #dbe3ea;border-radius:12px;padding:14px;background:var(--background-color,#fff)}
+button{border:0;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;cursor:pointer;font-weight:600}
+#start{background:#0f766e;color:white}#stop{background:#b91c1c;color:white}#stop:disabled{opacity:.4;cursor:not-allowed}
+video{width:100%;max-height:360px;background:#111;border-radius:8px;margin:8px 0}
+#status{font-size:13px;color:#64748b;margin-top:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="card">
+  <strong>Record livestock market video</strong>
+  <p style="font-size:13px;color:#64748b">Allow camera and microphone access when prompted. Recording is limited to 30 seconds and 25 MB.</p>
+  <video id="preview" autoplay muted playsinline></video>
+  <div><button id="start">Start recording</button><button id="stop" disabled>Stop &amp; use video</button></div>
+  <div id="status">Camera is off. Select Start recording to request camera access.</div>
+</div>
+<script>
+const preview=document.getElementById("preview"), start=document.getElementById("start"), stop=document.getElementById("stop"), status=document.getElementById("status");
+let stream=null, recorder=null, chunks=[], timer=null;
+function sendValue(value){window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:setComponentValue",value:value,dataType:"json"},"*");}
+function sendHeight(){window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:preview.parentElement.parentElement.scrollHeight},"*");}
+async function begin(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:true});
+  preview.srcObject=stream; chunks=[];
+  const mime=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported(t))||"";
+  recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  recorder.onstop=async()=>{
+   clearTimeout(timer); if(stream)stream.getTracks().forEach(t=>t.stop());
+   preview.srcObject=null; preview.controls=true;
+   const blob=new Blob(chunks,{type:recorder.mimeType||"video/webm"});
+   if(blob.size>25*1024*1024){status.textContent="Recording is over 25 MB. Please record a shorter video.";return;}
+   const reader=new FileReader();
+   reader.onloadend=()=>{const data=String(reader.result).split(",")[1];sendValue({name:"livestock-camera-recording.webm",mime:blob.type,data:data,size:blob.size});status.textContent="Video ready ("+(blob.size/1024/1024).toFixed(1)+" MB). Return to the app to analyse the recorded video.";sendHeight();};
+   reader.readAsDataURL(blob);
+  };
+  recorder.start(500);start.disabled=true;stop.disabled=false;status.textContent="Recording… it will stop automatically after 30 seconds.";timer=setTimeout(endRecording,30000);sendHeight();
+ }catch(e){status.textContent="Could not access the camera: "+e.message+". Check browser camera permissions and ensure the app is opened over HTTPS."; }
+}
+function endRecording(){if(recorder&&recorder.state!=="inactive"){recorder.stop();start.disabled=false;stop.disabled=true;status.textContent="Preparing video…";}}
+start.addEventListener("click",begin);stop.addEventListener("click",endRecording);
+window.addEventListener("beforeunload",()=>{if(stream)stream.getTracks().forEach(t=>t.stop());});
+window.addEventListener("message",e=>{if(e.data&&e.data.type==="streamlit:render"){sendHeight();}});
+sendHeight();
+</script>
+</body></html>
