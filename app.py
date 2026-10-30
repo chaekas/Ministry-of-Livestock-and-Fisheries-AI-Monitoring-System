@@ -22,6 +22,11 @@ from services.fish_counting import (
     get_model_path,
     load_model,
 )
+from services.livestock_counting import (
+    count_video_sampled_frames as count_livestock_video_sampled_frames,
+    get_model_path as get_livestock_model_path,
+    load_model as load_livestock_model,
+)
 
 st.set_page_config(
     page_title="Ministry AI Monitoring System",
@@ -117,17 +122,19 @@ def show_fish_counting(user):
         st.code(str(model_path), language="text")
         st.info(
             "Use a model trained for fish detection. Generic YOLO weights may not "
-            "contain a fish class and should not be treated as a fish-counting model."
+            "contain a fish class and should not be treated as a fish-counting model. "
+            "You can still capture a photo here, but AI counting needs the model file."
         )
-        return
 
     tab_image, tab_video = st.tabs(["Count from image", "Analyse video"])
     result_summary = None
 
     with tab_image:
-        image_file = st.file_uploader(
-            "Upload a fish image", type=["jpg", "jpeg", "png", "webp"], key="fish_image"
+        camera_image = st.camera_input("Take a fish photo at the market", key="fish_camera")
+        uploaded_image = st.file_uploader(
+            "Or upload a fish image", type=["jpg", "jpeg", "png", "webp"], key="fish_image"
         )
+        image_file = camera_image if camera_image is not None else uploaded_image
         image_confidence = st.slider(
             "Image detection confidence", 0.10, 0.90, 0.35, 0.05, key="fish_image_confidence"
         )
@@ -232,6 +239,133 @@ def show_fish_counting(user):
                 st.success(f"Verified fish-counting inspection #{record_id} saved.")
 
 
+def show_livestock_counting(user):
+    """Livestock counting page with camera capture and uploaded media."""
+    st.subheader("Livestock Counting")
+    st.write(
+        "Take a photo directly with your device camera or upload a photo/video "
+        "from a livestock market. Review detections before saving an inspection."
+    )
+    model_path = get_livestock_model_path()
+    st.caption(f"Configured model path: {model_path}")
+    if not model_path.is_file():
+        st.warning(
+            "A trained livestock YOLO model is not installed yet. Add suitable "
+            "weights at the path shown above or set LIVESTOCK_YOLO_MODEL. The "
+            "application will not substitute generic weights or invent counts."
+        )
+
+    tab_image, tab_video = st.tabs(["Count from photo", "Analyse uploaded video"])
+    result_summary = None
+
+    with tab_image:
+        camera_image = st.camera_input("Take a livestock photo at the market", key="livestock_camera")
+        uploaded_image = st.file_uploader(
+            "Or upload a livestock photo", type=["jpg", "jpeg", "png", "webp"], key="livestock_image"
+        )
+        image_file = camera_image if camera_image is not None else uploaded_image
+        confidence = st.slider(
+            "Detection confidence", 0.10, 0.90, 0.35, 0.05, key="livestock_confidence"
+        )
+        if image_file is not None and st.button("Count livestock in photo", key="count_livestock_image"):
+            try:
+                from PIL import Image
+                import io
+
+                image = Image.open(io.BytesIO(image_file.getvalue())).convert("RGB")
+                with st.spinner("Loading livestock model and detecting animals..."):
+                    model = load_livestock_model()
+                    count, annotated = count_image(model, image, confidence)
+                st.session_state["livestock_count_result"] = {
+                    "kind": "image",
+                    "count": count,
+                    "summary": f"Model detected {count} objects in the livestock photo.",
+                    "annotated": annotated,
+                }
+            except Exception as exc:
+                st.error(f"Livestock counting could not be completed: {exc}")
+
+        current = st.session_state.get("livestock_count_result")
+        if current and current.get("kind") == "image":
+            st.metric("Detections in photo", current["count"])
+            if current.get("annotated") is not None:
+                st.image(current["annotated"], caption="Annotated detections", use_container_width=True)
+            result_summary = current["summary"]
+
+    with tab_video:
+        video_file = st.file_uploader(
+            "Upload a livestock market video", type=["mp4", "mov", "avi", "mkv"], key="livestock_video"
+        )
+        video_confidence = st.slider(
+            "Video detection confidence", 0.10, 0.90, 0.35, 0.05, key="livestock_video_confidence"
+        )
+        if video_file is not None and st.button("Analyse sampled video frames", key="count_livestock_video"):
+            import tempfile
+
+            suffix = "." + video_file.name.rsplit(".", 1)[-1].lower()
+            try:
+                with tempfile.NamedTemporaryFile(suffix=suffix) as temp_video:
+                    temp_video.write(video_file.getvalue())
+                    temp_video.flush()
+                    with st.spinner("Sampling video frames and detecting livestock..."):
+                        model = load_livestock_model()
+                        frame_counts = count_livestock_video_sampled_frames(
+                            model, temp_video.name, confidence=video_confidence
+                        )
+                peak = max(item["animal_count"] for item in frame_counts)
+                summary = (
+                    f"Sampled {len(frame_counts)} frames. Peak observed detections were {peak} "
+                    "in one sampled frame; this is not a unique-animal total."
+                )
+                st.session_state["livestock_count_result"] = {
+                    "kind": "video",
+                    "count": peak,
+                    "summary": summary,
+                    "frames": frame_counts,
+                }
+            except Exception as exc:
+                st.error(f"Livestock video analysis could not be completed: {exc}")
+
+        current = st.session_state.get("livestock_count_result")
+        if current and current.get("kind") == "video":
+            st.metric("Peak detections in one sampled frame", current["count"])
+            st.caption(current["summary"])
+            st.dataframe(pd.DataFrame(current["frames"]), use_container_width=True, hide_index=True)
+            result_summary = current["summary"]
+
+    current = st.session_state.get("livestock_count_result")
+    if current and result_summary:
+        st.divider()
+        st.subheader("Save reviewed result")
+        st.warning("AI detections are estimates. Verify the count before saving an inspection.")
+        with st.form("save_livestock_count_result"):
+            location = st.text_input("Market, district, or facility location")
+            subject = st.selectbox("Livestock category", ["Cattle", "Goats", "Sheep", "Mixed livestock", "Other"])
+            verified_count = st.number_input(
+                "Verified animal count", min_value=0, value=int(current["count"]), step=1
+            )
+            notes = st.text_area("Verification notes")
+            save_result = st.form_submit_button("Save verified inspection")
+        if save_result:
+            if not location.strip() or not notes.strip():
+                st.error("Location and verification notes are required.")
+            else:
+                record_id = create_inspection(
+                    "Livestock Counting",
+                    location.strip(),
+                    subject,
+                    f"AI result: {current['summary']} Officer-verified count: "
+                    f"{int(verified_count)}. Verification notes: {notes.strip()}",
+                    user["username"],
+                )
+                record_audit(
+                    user["username"],
+                    "livestock_count_result_saved",
+                    f"Inspection ID {record_id}; verified count {int(verified_count)}",
+                )
+                st.success(f"Verified livestock-counting inspection #{record_id} saved.")
+
+
 def show_dashboard():
     user = st.session_state["user"]
     with st.sidebar:
@@ -266,6 +400,9 @@ def show_dashboard():
 
     elif section == "Fish Counting":
         show_fish_counting(user)
+
+    elif section == "Livestock Counting":
+        show_livestock_counting(user)
 
     elif section in MODULES:
         st.subheader(section)
