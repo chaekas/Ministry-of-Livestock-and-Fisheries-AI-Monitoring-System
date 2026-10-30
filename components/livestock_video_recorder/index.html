@@ -24,6 +24,7 @@ const preview=document.getElementById("preview"), start=document.getElementById(
 let stream=null, recorder=null, chunks=[], timer=null;
 function sendValue(value){window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:setComponentValue",value:value,dataType:"json"},"*");}
 function sendHeight(){window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:preview.parentElement.parentElement.scrollHeight},"*");}
+window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:componentReady",apiVersion:1},"*");
 async function begin(){
  try{
   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:true});
