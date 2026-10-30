@@ -2,6 +2,8 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from pathlib import Path
+from uuid import uuid4
 
 from database.db import (
     count_users,
@@ -415,21 +417,49 @@ def show_dashboard():
 
     elif section == "New Inspection":
         st.subheader("Create an Inspection Record")
+        st.write("You can attach photos and videos from a livestock or fish market to the inspection.")
         with st.form("inspection_form"):
             module = st.selectbox("Module", list(MODULES.keys()))
             location = st.text_input("District, facility, or location")
             subject = st.text_input("Livestock type, fish species, or subject")
             notes = st.text_area("Notes or verified observations")
-            submitted = st.form_submit_button("Save inspection")
+            media_files = st.file_uploader(
+                "Attach photos and/or videos (optional)",
+                type=["jpg", "jpeg", "png", "webp", "mp4", "mov", "avi", "mkv"],
+                accept_multiple_files=True,
+                help="Supported photos: JPG, PNG, WEBP. Supported videos: MP4, MOV, AVI, MKV."
+            )
+            submitted = st.form_submit_button("Save inspection and attachments")
         if submitted:
             if not location.strip() or not notes.strip():
                 st.error("Location and notes are required.")
             else:
+                saved_paths = []
+                if media_files:
+                    upload_dir = Path("uploads") / "inspections"
+                    upload_dir.mkdir(parents=True, exist_ok=True)
+                    for uploaded_file in media_files:
+                        suffix = Path(uploaded_file.name).suffix.lower()
+                        safe_name = f"{uuid4().hex}{suffix}"
+                        destination = upload_dir / safe_name
+                        destination.write_bytes(uploaded_file.getvalue())
+                        saved_paths.append(str(destination))
+                saved_notes = notes.strip()
+                if saved_paths:
+                    saved_notes += "\\n\\nAttached media files:\\n" + "\\n".join(saved_paths)
                 record_id = create_inspection(
-                    module, location.strip(), subject.strip(), notes.strip(), user["username"]
+                    module, location.strip(), subject.strip(), saved_notes, user["username"]
                 )
-                record_audit(user["username"], "inspection_created", f"Inspection ID {record_id}")
-                st.success(f"Inspection record #{record_id} saved.")
+                record_audit(
+                    user["username"],
+                    "inspection_created",
+                    f"Inspection ID {record_id}; media attachments: {len(saved_paths)}"
+                )
+                st.success(
+                    f"Inspection record #{record_id} saved with {len(saved_paths)} media attachment(s)."
+                )
+                if saved_paths:
+                    st.caption("Saved files: " + ", ".join(saved_paths))
 
     elif section == "Reports":
         st.subheader("Inspection Reports")
